@@ -1,11 +1,11 @@
 import gzip
 import csv
 import os
-from typing import List
+from typing import List, TextIO
 
 def extract_features(filename: str) -> None:
     """
-    Read file from file name, extract features, then parse into csv file.
+    Read from file name, extract features, then parse into csv file.
     """
     
     csv_fields = ['product/productId', 
@@ -17,7 +17,7 @@ def extract_features(filename: str) -> None:
                   'review/summary',
                   'review/text']
     
-    def helper(f):
+    def helper(f: TextIO):
         csv_values = []
         curr_review = []
         
@@ -29,7 +29,7 @@ def extract_features(filename: str) -> None:
 
             try:
                 colon_idx = line.index(':')
-                field, value = line[:colon_idx], line[colon_idx+1:].strip()
+                value = line[colon_idx+1:].strip()
                 curr_review.append(value)
                 
             except:

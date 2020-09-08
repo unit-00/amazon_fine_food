@@ -4,6 +4,10 @@ from pathlib import Path
 base_dir = Path(__file__).resolve(strict=True).parent
 
 def download_data():
+    """
+    Download dataset from Stanford's Snap 
+    and write to data directory
+    """
     url = 'https://snap.stanford.edu/data/finefoods.txt.gz'
     response = requests.get(url)
 

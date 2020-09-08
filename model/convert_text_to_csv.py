@@ -21,6 +21,9 @@ def extract_features(filename: str) -> None:
                   'review/text']
 
     def helper(f: TextIO):
+        """
+        Helper to parse file into csv format
+        """
         csv_values = []
         curr_review = []
 

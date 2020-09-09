@@ -23,6 +23,13 @@ np.random.seed(42)
 if not ('loaded_predictions' in globals()) and os.path.isfile(base_dir.joinpath('predictions.dump')):
     loaded_predictions, _ = dump.load(base_dir.joinpath('predictions.dump'))
 
+if not ('loaded_svd_algo' in globals()) and os.path.isfile(base_dir.joinpath('svd.dump')):
+    _, loaded_svd_algo = dump.load(base_dir.joinpath('svd.dump'))
+
+if not ('loaded_knn_algo' in globals()) and os.path.isfile(base_dir.joinpath('knn.dump')):
+    _, loaded_knn_algo = dump.load(base_dir.joinpath('knn.dump'))
+
+
 def train(trainset: Trainset):
     """
     Train SVD model based on options using utility matrix,
@@ -57,21 +64,13 @@ def predict(pred_type: str, raw_id: str, n: int = 10):
     """
     Return top n recommendations for user
     """
-    global loaded_predictions
+    global loaded_predictions, loaded_svd_algo, loaded_knn_algo
 
     if pred_type == 'item':
-        dump_filename = 'knn.dump'
-
-        _, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
-
-        predictions = get_item_rec(loaded_algo, raw_id, n)
+        predictions = get_item_rec(loaded_knn_algo, raw_id, n)
 
     else:
-        dump_filename = 'svd.dump'
-    
-        _, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
-    
-        predictions = get_user_rec(loaded_algo, loaded_predictions, raw_id, n)
+        predictions = get_user_rec(loaded_svd_algo, loaded_predictions, raw_id, n)
 
     return predictions
 

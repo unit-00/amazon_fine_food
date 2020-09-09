@@ -15,7 +15,3 @@ def download_data():
 
     with open(base_dir.joinpath('data', filename), 'wb') as f_in:
         f_in.write(response.content)
-
-
-if __name__ == '__main__':
-    download_data()

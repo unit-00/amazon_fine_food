@@ -35,6 +35,7 @@ def train(trainset: Trainset):
     Train SVD model based on options using utility matrix,
     then dump prediction and algorithm for future usage.
     """
+    global loaded_svd_algo, loaded_knn_algo
     
     svd_options = {'n_factors': 82, 
                    'n_epochs': 33, 
@@ -54,9 +55,11 @@ def train(trainset: Trainset):
 
     # train and dump
     svd_algo.fit(trainset)
+    loaded_svd_algo = svd_algo
     dump.dump(base_dir.joinpath('svd.dump'), algo=svd_algo)
 
     knn_algo.fit(trainset)
+    loaded_knn_algo = knn_algo
     dump.dump(base_dir.joinpath('knn.dump'), algo=knn_algo)
     print('Training and dumping completed')
 

@@ -62,10 +62,3 @@ def extract_features(filename: str):
         csv_writer.writerow(csv_fields)
 
         csv_writer.writerows(csv_values)
-
-
-if __name__ == '__main__':
-    print("Functions to convert Amazon Finefoods text to csv")
-    filename = input("Enter path to filename for featurs extraction:\n")
-
-    extract_features(filename)

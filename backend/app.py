@@ -1,26 +1,23 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-
+from fastapi.responses import RedirectResponse
 from model.model import predict
 
-from typing import List, Tuple
+# Validation models
+from backend.model.models import IdIn, PredictionOut
+
 
 app = FastAPI()
 
-class IdIn(BaseModel):
-    pred_type: str
-    iid: str
+@app.get('/')
+async def root():
+    return RedirectResponse('/docs')
 
-class PredictionOut(BaseModel):
-    iid: str
-    predictions: List[str]
-
-@app.get('/ping')
-def pong():
-    return {'ping': 'pong'}
+@app.get('/hello')
+def hello_world():
+    return {'hello': 'world'}
 
 @app.post('/predict', response_model=PredictionOut)
-async def get_item_prediction(payload: IdIn):
+async def get_prediction(payload: IdIn):
     
     predictions = predict(payload.pred_type, payload.iid, 5)
 

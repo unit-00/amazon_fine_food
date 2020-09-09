@@ -25,7 +25,7 @@ def train(data: pd.DataFrame):
     Train SVD model based on options using utility matrix,
     then dump prediction and algorithm for future usage.
     """
-    # Getting data in dataframe and then filtering the data down
+    # getting data in dataframe and then filtering the data down
     filtered_items = get_items_with_n_ratings(data, 100)
     mask = data['itemId'].isin(filtered_items)
     utility_matrix = data.loc[mask, ['userId', 'itemId', 'rating']]
@@ -36,19 +36,19 @@ def train(data: pd.DataFrame):
                                    'user_based': False},
                     'k': 35,
                     'min_k': 1}
-    # Setup the algorithm
+    # setup the algorithm
     svd_algo = SVD(**svd_options)
     knn_algo = KNNBaseline(**knn_options)
     reader = Reader(line_format='user item rating', rating_scale=(1,5))
     ds = Dataset.load_from_df(utility_matrix, reader)
 
-    # Data building
+    # data building
     trainset = ds.build_full_trainset()
     testset = trainset.build_anti_testset()
     print('Dataset build completed')
 
 
-    # Train and dump
+    # train and dump
     _train_and_dump('svd', svd_algo, trainset, testset)
     _train_and_dump('knn', knn_algo, trainset)
     print('Training and dumping completed')
@@ -59,45 +59,59 @@ def _train_and_dump(name: str, algo: Type[AlgoBase], train: Trainset, test: List
     """
     preds = None
 
-    # Train
+    # train
     algo.fit(train)
     print("Training in helper function completed")
 
-    # Anti test, user-item pair that does not exist in original dataset
+    # anti test, user-item pairs that do not exist in original dataset
     if name == 'svd':
         preds = test
         print('Predictions completed')
 
     dump.dump(base_dir.joinpath(name + '.dump'), predictions=preds, algo=algo)
 
-    
+def predict(raw_id: str, n: int = 10):
+    """
+    Return top n recommendations for user
+    """
 
-def get_top_n(predictions: List[prediction_algorithms.Prediction], raw_uid: str, n: int = 10):
+    if len(raw_id) == 10:
+        dump_filename = 'knn.dump'
+
+        loaded_predictions, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
+
+        predictions = get_item_rec(loaded_algo, raw_id, n)
+
+    else:
+        dump_filename = 'svd.dump'
+    
+        loaded_predictions, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
+    
+        predictions = get_user_rec(loaded_algo, loaded_predictions, raw_id, n)
+
+    return predictions
+
+def get_user_rec(algo: Type[AlgoBase], predictions: List[Tuple[str, str, float]], raw_uid: str, n: int = 10):
     """
     Returns top n recommendations for all users
     """
 
+    user_check = lambda u: u[0] == raw_uid
+
     top_n = []
 
-    for uid, iid, true_r, est, _ in loaded_predictions:
-        if uid == raw_uid:
-            top_n.append((iid, est))
+    for uid, iid, def_r in filter(user_check, predictions):
+        preds = algo.predict(uid, iid)
+        top_n.append((preds.iid, preds.est))
 
     top_n.sort(key=lambda x: x[1], reverse=True)
 
     return top_n[:n]
 
-
-def predict(dump_filename: str, raw_uid: str, n: int = 10):
-    """
-    Return top n recommendations for user
-    """
-
-    loaded_predictions, _ = dump.load(base_dir.joinpath(dump_filename))
+def get_item_rec(algo: Type[AlgoBase], raw_iid: int, n: int = 10):
+    iid = algo.trainset.to_inner_iid(raw_iid)
+    return [algo.trainset.to_raw_iid(good_neighbor) for good_neighbor in algo.get_neighbors(iid, n)]
     
-    top_n = get_top_n(loaded_predictions, raw_uid, n)
-
-    return top_n
 
 def get_data(filename: str):
     """

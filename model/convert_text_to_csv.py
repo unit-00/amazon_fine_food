@@ -6,7 +6,7 @@ from typing import List, TextIO
 
 base_dir = Path(__file__).resolve(strict=True).parent
 
-def extract_features(filename: str) -> None:
+def extract_features(filename: str):
     """
     Read from file name, extract features, then parse into csv file.
     """
@@ -62,9 +62,6 @@ def extract_features(filename: str) -> None:
         csv_writer.writerow(csv_fields)
 
         csv_writer.writerows(csv_values)
-
-
-
 
 
 if __name__ == '__main__':

@@ -20,72 +20,56 @@ base_data_dir = base_dir.joinpath('data')
 random.seed(42)
 np.random.seed(42)
 
-def train(data: pd.DataFrame):
+if not ('loaded_predictions' in globals()) and os.path.isfile(base_dir.joinpath('predictions.dump')):
+    loaded_predictions, _ = dump.load(base_dir.joinpath('predictions.dump'))
+
+def train(trainset: Trainset):
     """
     Train SVD model based on options using utility matrix,
     then dump prediction and algorithm for future usage.
     """
-    # getting data in dataframe and then filtering the data down
-    filtered_items = get_items_with_n_ratings(data, 100)
-    mask = data['itemId'].isin(filtered_items)
-    utility_matrix = data.loc[mask, ['userId', 'itemId', 'rating']]
     
-    svd_options = {'n_factors': 82, 'n_epochs': 33, 'lr_all': 0.115, 'reg_all': 0.02}
-    knn_options = {'sim_options': {'name': 'pearson', 
-                                   'min_support': 4, 
-                                   'user_based': False},
+    svd_options = {'n_factors': 82, 
+                   'n_epochs': 33, 
+                   'lr_all': 0.115, 
+                   'reg_all': 0.02}
+
+    knn_options = {'sim_options': 
+                    {'name': 'pearson', 
+                     'min_support': 4, 
+                     'user_based': False},
                     'k': 35,
                     'min_k': 1}
+
     # setup the algorithm
     svd_algo = SVD(**svd_options)
     knn_algo = KNNBaseline(**knn_options)
-    reader = Reader(line_format='user item rating', rating_scale=(1,5))
-    ds = Dataset.load_from_df(utility_matrix, reader)
-
-    # data building
-    trainset = ds.build_full_trainset()
-    testset = trainset.build_anti_testset()
-    print('Dataset build completed')
-
 
     # train and dump
-    _train_and_dump('svd', svd_algo, trainset, testset)
-    _train_and_dump('knn', knn_algo, trainset)
+    svd_algo.fit(trainset)
+    dump.dump(base_dir.joinpath('svd.dump'), algo=svd_algo)
+
+    knn_algo.fit(trainset)
+    dump.dump(base_dir.joinpath('knn.dump'), algo=knn_algo)
     print('Training and dumping completed')
 
-def _train_and_dump(name: str, algo: Type[AlgoBase], train: Trainset, test: List[Tuple[str, str, float]] = None):
-    """
-    Helper function for training to deallocate memory
-    """
-    preds = None
-
-    # train
-    algo.fit(train)
-    print("Training in helper function completed")
-
-    # anti test, user-item pairs that do not exist in original dataset
-    if name == 'svd':
-        preds = test
-        print('Predictions completed')
-
-    dump.dump(base_dir.joinpath(name + '.dump'), predictions=preds, algo=algo)
-
-def predict(raw_id: str, n: int = 10):
+def predict(pred_type: str, raw_id: str, n: int = 10):
     """
     Return top n recommendations for user
     """
+    global loaded_predictions
 
-    if len(raw_id) == 10:
+    if pred_type == 'item':
         dump_filename = 'knn.dump'
 
-        loaded_predictions, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
+        _, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
 
         predictions = get_item_rec(loaded_algo, raw_id, n)
 
     else:
         dump_filename = 'svd.dump'
     
-        loaded_predictions, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
+        _, loaded_algo = dump.load(base_dir.joinpath(dump_filename))
     
         predictions = get_user_rec(loaded_algo, loaded_predictions, raw_id, n)
 
@@ -95,18 +79,17 @@ def get_user_rec(algo: Type[AlgoBase], predictions: List[Tuple[str, str, float]]
     """
     Returns top n recommendations for all users
     """
-
     user_check = lambda u: u[0] == raw_uid
 
     top_n = []
-
+    
     for uid, iid, def_r in filter(user_check, predictions):
         preds = algo.predict(uid, iid)
         top_n.append((preds.iid, preds.est))
 
     top_n.sort(key=lambda x: x[1], reverse=True)
 
-    return top_n[:n]
+    return [iid for iid, est in top_n[:n]]
 
 def get_item_rec(algo: Type[AlgoBase], raw_iid: int, n: int = 10):
     iid = algo.trainset.to_inner_iid(raw_iid)
@@ -136,10 +119,47 @@ def get_data(filename: str):
     except:
         raise Exception('File does not exist.')
 
-    return utility_matrix.rename(columns={
+    utility_matrix = utility_matrix.rename(columns={
                                    user_col:'userId',
                                    item_col: 'itemId',
                                    rating_col: 'rating'})
+
+    # clean data
+    utility_matrix = clean_data(utility_matrix)
+    
+    return build_dataset(utility_matrix)
+
+def build_dataset(data: pd.DataFrame):
+    """
+    Returns dataset object for Surprise algorithm
+    and dump anti test set (user-item pairs not in the train set)
+    """
+    global loaded_predictions
+
+    reader = Reader(line_format='user item rating', rating_scale=(1,5))
+    ds = Dataset.load_from_df(data, reader)
+
+    # data building
+    trainset = ds.build_full_trainset()
+    testset = trainset.build_anti_testset()
+    dump.dump(base_dir.joinpath('predictions.dump'), predictions= testset)
+
+    loaded_predictions = testset
+    print('Dataset build completed')
+
+    return trainset
+
+def clean_data(data: pd.DataFrame):
+    """
+    Returns processed data according to cleaning process
+    """
+
+    # Filter only items with more than 100 ratings
+    filtered_items = get_items_with_n_ratings(data, 100)
+    mask = data['itemId'].isin(filtered_items)
+    data = data.loc[mask, ['userId', 'itemId', 'rating']]
+
+    return data
 
 def get_items_with_n_ratings(u_mat: pd.DataFrame, n: int):
     """

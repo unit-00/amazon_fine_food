@@ -56,6 +56,7 @@ In total, there are
 - 74258 prodcuts
 
 During exploration of the data, I have found that majority of the users and items have less than 10 ratings count and majority of the ratings hover around a 4 or 5 stars.
+The following graphs is of top 100 users and items with the most ratings. 
 
 ![Distribution of User Ratings](/images/n_user_ratings.jpg)
 
